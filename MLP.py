@@ -7,77 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+
 class MLP():
-  trainX = [] #training input
-  trainY = [] #training output
-  testX = [] #testing input
-  testY = [] #testing output
   Ws = [] #weights
   Zs = [] #hidden layers
-  AV #activation function
-
-  def __init__ (self, layerNumber):
-    transform = transforms.Compose(
-      [transforms.ToTensor(),
-       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset,
-                                          shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset,
-                                         shuffle=False, num_workers=2)
-
-    classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-
-    #getting the x(2d matrix of 50000*3072, input images), and y(1*3072, output label);
-    tmpTrain = trainloader.dataset.data # shape of 50000*32*32*3 need to transform to 50000*3072
-    x,y1,y2,y3 = tmpTrain.shape
-    self.trainX = np.zeros([x, y1*y2*y3])
-    tmpTrainY = trainloader.dataset.targets
-    self.trainY = np.zeros([len(tmpTrainY), len(classes)])
-    for i in range(len(tmpTrainY)):
-      self.trainY[i][tmpTrainY[i]] = 1
-    tmpTest = testloader.dataset.data # shape of 10000*32*32*3 need to transform to 10000*3072
-    xx, y4, y5, y6 = tmpTest.shape
-    self.testY = testloader.dataset.targets
-    self.testX = np.zeros([xx, y4*y5*y6])
-    for i in range(x):
-      self.trainX[i] = tmpTrain[i].flatten()
-
-    self.trainX = self.trainX / np.linalg.norm(self.trainX) 
-    for j in range(xx):
-      self.testX[j] = tmpTest[j].flatten()
-
-    self.testX = self.testX / np.linalg.norm(self.testX)
-
-    print("the shape of matrix trainX" + str(self.trainX.shape))
-    print("the size of trainY " + str(self.trainY.shape))
-    print("the shape of matrix testX" + str(self.testX.shape))
-    print("the size of testY " + str(len(self.testY)))
-
-    #fill Ws with initial random weight
-    #define weights for different layers, put them in a list called Ws, each weight has a shape of size(l-1)*size(l)
-    N,D = self.trainX.shape
-    start = D
-    N,DD =self.trainY.shape
-    end = layerNumber[0]
-    w = np.random.randn(start, end)*0.1
-    self.Ws.append(w)
-    for i in range(len(layerNumber)):
-      start = layerNumber[i]
-      if i+1 == len(layerNumber):
-        end = DD
-      else:
-        end = layerNumber[i+1]
-      w = np.random.randn(start, end)*0.1
-      print(w)
-      self.Ws.append(w)
+  AV = []#activation function
 
   #activation functions
 
@@ -117,7 +51,7 @@ class MLP():
     self.Zs.clear()
     for layer in layerNumber:
       self.Zs.append(np.zeros([N,layer]))
-    Yhead = np.zeros([N, len(classes)])
+    Yhead = np.zeros([N, 10])
     tmp = X
     for i in range(len(self.Ws)-1):
       NN,DD = tmp.shape
@@ -181,9 +115,25 @@ class MLP():
     dWs.reverse()
     return dWs
 
-  def fit(self, lr, decay, eps, maxiterations, bsize, beta):
-    N,D = self.trianX.shape
-    dW = np.inf*np.ones_like(self.Ws[len(Ws)-1])
+  def fit(self,layerNumber, trainX, trainY, lr, decay, eps, maxiterations, bsize, beta):
+    #fill Ws with initial random weight
+    #define weights for different layers, put them in a list called Ws, each weight has a shape of size(l-1)*size(l)
+    N,D = trainX.shape
+    start = D
+    N,DD =trainY.shape
+    end = layerNumber[0]
+    w = np.random.randn(start, end)*0.1
+    self.Ws.append(w)
+    for i in range(len(layerNumber)):
+      start = layerNumber[i]
+      if i+1 == len(layerNumber):
+        end = DD
+      else:
+        end = layerNumber[i+1]
+      w = np.random.randn(start, end)*0.1
+      #print(w)
+      self.Ws.append(w)
+    dW = np.inf*np.ones_like(self.Ws[len(self.Ws)-1])
     dws = []
     for w in self.Ws:
       dw = np.zeros(w.shape)
@@ -191,17 +141,18 @@ class MLP():
     iter = 0
     while np.linalg.norm(dW) > eps and iter<maxiterations:
       minibatch = np.random.randint(N, size=(bsize))
-      g = self.gradient(self.trainX[minibatch,:], self.trainY[minibatch,:])
+      g = self.gradient(trainX[minibatch,:], trainY[minibatch,:])
       for i in range(len(self.Ws)):
         dws[i] = (1-beta)*g[i]+beta*dws[i]
         self.Ws[i] = self.Ws[i]-lr*dws[i]
       dW = g[len(self.Ws)-1]
+      print(iter)
+      print(lr)
       lr *= (1. / (1. + decay * iter))
-      #print(lr)
       iter = iter+1
 
   def getBiggestY(self, Y):
-    print(Y) 
+    #print(Y) 
     N,D = Y.shape
     result = np.zeros([N])
     for i in range(N):
@@ -215,21 +166,78 @@ class MLP():
     print(result)
     return result
 
-  def predict(self):
+  def predict(self, testX, testY):
     print("predicting ...")
-    yHead = self.getYhead(self.testX)
-    yResult = getBiggestY(self.yHead)
+    yHead = self.getYhead(testX)
+    yResult = self.getBiggestY(yHead)
     totalRight = 0.0
-    for i in range(len(self.testY)):
-      if(yResult[i] == self.testY[i]):
+    for i in range(len(testY)):
+      if(yResult[i] == testY[i]):
         totalRight = totalRight+1
-    return totalRight/len(self.testY)
+    return totalRight/len(testY)
+
+
+
 
 
 
 
 if __name__ == '__main__':
-  layerNumber = [1024,500, 250, 100, 50] #number of hidden layers and number of nodes in each layer
-  theMlP = MLP(layerNumber)
-  theMLP.fit(0.05 ,0, 0.00001, 10000, 500, .99)
-  print(theMLP.predict())
+
+    transform = transforms.Compose(
+      [transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset,
+                                          shuffle=True, num_workers=2)
+    
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                        download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset,
+                                          shuffle=False, num_workers=2)
+    
+    classes = ('plane', 'car', 'bird', 'cat',
+            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    
+    
+    #getting the x(2d matrix of 50000*3072, input images), and y(1*3072, output label);
+    tmpTrain = trainloader.dataset.data # shape of 50000*32*32*3 need to transform to 50000*3072
+    x,y1,y2,y3 = tmpTrain.shape
+    trainX = np.zeros([x, y1*y2*y3])
+    tmpTrainY = trainloader.dataset.targets
+    trainY = np.zeros([len(tmpTrainY), len(classes)])
+    for i in range(len(tmpTrainY)):
+      trainY[i][tmpTrainY[i]] = 1
+    tmpTest = testloader.dataset.data # shape of 10000*32*32*3 need to transform to 10000*3072
+    xx, y4, y5, y6 = tmpTest.shape
+    testY = testloader.dataset.targets
+    testX = np.zeros([xx, y4*y5*y6])
+    for i in range(x):
+      trainX[i] = tmpTrain[i].flatten()
+    
+    trainX = trainX / np.linalg.norm(trainX) 
+    for j in range(xx):
+      testX[j] = tmpTest[j].flatten()
+    
+    testX = testX / np.linalg.norm(testX)
+    
+    print("the shape of matrix trainX" + str(trainX.shape))
+    print("the size of trainY " + str(trainY.shape))
+    print("the shape of matrix testX" + str(testX.shape))
+    print("the size of testY " + str(len(testY)))
+    layerNumber = [800, 200, 50] #number of hidden layers and number of nodes in each layer
+    theMLP = MLP()
+    theMLP.fit(layerNumber, trainX, trainY, 0.1, 0.000001, 1e-09, 10000, 500, 0.99)
+    yHead = theMLP.getYhead(theMLP.testX)
+    yResult = theMLP.getBiggestY(yHead)
+    testY = theMLP.testY
+    totalCorrect = np.zeros(10)
+    predictCorrect = np.zeros(10)
+    for i in range(len(testY)):
+      totalCorrect[testY[i]] += 1
+      if yResult[i] == testY[i]:
+        predictCorrect[int(yResult[i])]+=1
+    for i in range(10):
+      print(theMLP.classes[i] + " accuracy: " + str(predictCorrect[i]/totalCorrect[i]))
